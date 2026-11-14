@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "Hotel": {
+      "title": "Hotel",
+      "description": "A hotel listing stored in Firestore containing name, location, nightly price, description, amenities, and room options.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name of the hotel." },
+        "location": { "type": "string", "description": "Full street/city location of the hotel." },
+        "price": { "type": "integer", "description": "Starting nightly rate in INR." },
+        "description": { "type": "string", "description": "Detailed overview of the hotel." },
+        "city": { "type": "string", "description": "City name." },
+        "state": { "type": "string", "description": "State or region name." },
+        "categoryName": { "type": "string", "description": "Category enum name (PALACE, BEACH, MOUNTAIN, LUXURY)." },
+        "rating": { "type": "number", "description": "Average guest rating." },
+        "reviewCount": { "type": "integer", "description": "Total number of guest reviews." },
+        "imageKey": { "type": "string", "description": "Local image asset key." },
+        "amenities": { "type": "array", "description": "List of hotel amenities." },
+        "checkInTime": { "type": "string", "description": "Standard check-in time." },
+        "checkOutTime": { "type": "string", "description": "Standard check-out time." },
+        "rooms": { "type": "array", "description": "Available room options." },
+        "featured": { "type": "boolean", "description": "Whether the hotel is featured." },
+        "isActive": { "type": "boolean", "description": "Whether the listing is active for display." },
+        "createdBy": { "type": "string", "description": "Firebase Auth UID of the creator." },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when hotel was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when hotel was updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "name",
+        "location",
+        "price",
+        "description",
+        "isActive",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A user's hotel room reservation with check-in/out dates, guest details, pricing breakdown, and confirmation status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the booking owner." },
+        "hotelId": { "type": "string", "description": "Identifier of the booked hotel." },
+        "hotelName": { "type": "string", "description": "Display name of the hotel." },
+        "hotelCity": { "type": "string", "description": "City of the hotel." },
+        "hotelImageKey": { "type": "string", "description": "Local drawable key for the hotel photo." },
+        "roomType": { "type": "string", "description": "Selected room category name." },
+        "guestName": { "type": "string", "description": "Primary guest full name." },
+        "guestPhone": { "type": "string", "description": "Optional guest contact phone." },
+        "specialRequests": { "type": "string", "description": "Optional check-in or room requests." },
+        "checkInEpochDay": { "type": "integer", "description": "Check-in date as epoch day." },
+        "checkOutEpochDay": { "type": "integer", "description": "Check-out date as epoch day." },
+        "nights": { "type": "integer", "description": "Number of nights booked." },
+        "guestsCount": { "type": "integer", "description": "Total number of guests." },
+        "roomsCount": { "type": "integer", "description": "Number of rooms reserved." },
+        "pricePerNight": { "type": "integer", "description": "Room nightly rate in INR." },
+        "taxesAndFees": { "type": "integer", "description": "Taxes and service fees in INR." },
+        "totalAmount": { "type": "integer", "description": "Total payable amount in INR." },
+        "bookingCode": { "type": "string", "description": "Human-readable reservation reference code." },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "cancelled"],
+          "description": "Current lifecycle status of the booking."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when booking was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when booking was last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "hotelId",
+        "hotelName",
+        "hotelCity",
+        "hotelImageKey",
+        "roomType",
+        "guestName",
+        "checkInEpochDay",
+        "checkOutEpochDay",
+        "nights",
+        "guestsCount",
+        "roomsCount",
+        "pricePerNight",
+        "taxesAndFees",
+        "totalAmount",
+        "bookingCode",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FavoriteHotel": {
+      "title": "FavoriteHotel",
+      "description": "A hotel bookmarked by the user for quick access.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the user." },
+        "hotelId": { "type": "string", "description": "Identifier of the saved hotel." },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when saved (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "hotelId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/hotels/{hotelId}": {
+      "schema": { "$ref": "#/entities/Hotel" },
+      "description": "Collection of active hotel listings."
+    },
+    "/users/{userId}/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "User-scoped collection of hotel reservations."
+    },
+    "/users/{userId}/favorites/{hotelId}": {
+      "schema": { "$ref": "#/entities/FavoriteHotel" },
+      "description": "User-scoped collection of saved favorite hotels."
+    }
+  }
+}

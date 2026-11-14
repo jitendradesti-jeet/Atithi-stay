@@ -1,0 +1,188 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidHotel(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             data.location is string && data.location.size() >= 1 && data.location.size() <= 200 &&
+             data.price is int && data.price >= 0 && data.price <= 1000000 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 1000 &&
+             (!('city' in data) || (data.city is string && data.city.size() <= 80)) &&
+             (!('state' in data) || (data.state is string && data.state.size() <= 80)) &&
+             (!('categoryName' in data) || (data.categoryName is string && data.categoryName.size() <= 40)) &&
+             (!('rating' in data) || ((data.rating is float || data.rating is int) && data.rating >= 0 && data.rating <= 5)) &&
+             (!('reviewCount' in data) || (data.reviewCount is int && data.reviewCount >= 0)) &&
+             (!('imageKey' in data) || (data.imageKey is string && data.imageKey.size() <= 64)) &&
+             (!('amenities' in data) || (data.amenities is list && data.amenities.size() <= 20 && (data.amenities.size() == 0 || data.amenities[0] is string))) &&
+             (!('checkInTime' in data) || (data.checkInTime is string && data.checkInTime.size() <= 40)) &&
+             (!('checkOutTime' in data) || (data.checkOutTime is string && data.checkOutTime.size() <= 40)) &&
+             (!('rooms' in data) || (data.rooms is list && data.rooms.size() <= 20)) &&
+             (!('featured' in data) || data.featured is bool) &&
+             data.isActive is bool &&
+             data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128;
+    }
+
+    function isValidBooking(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.hotelId is string && data.hotelId.size() >= 1 && data.hotelId.size() <= 64 &&
+             data.hotelName is string && data.hotelName.size() >= 1 && data.hotelName.size() <= 120 &&
+             data.hotelCity is string && data.hotelCity.size() >= 1 && data.hotelCity.size() <= 80 &&
+             data.hotelImageKey is string && data.hotelImageKey.size() >= 1 && data.hotelImageKey.size() <= 64 &&
+             data.roomType is string && data.roomType.size() >= 1 && data.roomType.size() <= 80 &&
+             data.guestName is string && data.guestName.size() >= 1 && data.guestName.size() <= 100 &&
+             (!('guestPhone' in data) || data.guestPhone == null || (data.guestPhone is string && data.guestPhone.size() <= 20)) &&
+             (!('specialRequests' in data) || data.specialRequests == null || (data.specialRequests is string && data.specialRequests.size() <= 300)) &&
+             data.checkInEpochDay is int && data.checkInEpochDay >= 0 &&
+             data.checkOutEpochDay is int && data.checkOutEpochDay > data.checkInEpochDay &&
+             data.nights is int && data.nights >= 1 && data.nights <= 60 &&
+             data.guestsCount is int && data.guestsCount >= 1 && data.guestsCount <= 20 &&
+             data.roomsCount is int && data.roomsCount >= 1 && data.roomsCount <= 10 &&
+             data.pricePerNight is int && data.pricePerNight >= 0 && data.pricePerNight <= 500000 &&
+             data.taxesAndFees is int && data.taxesAndFees >= 0 && data.taxesAndFees <= 500000 &&
+             data.totalAmount is int && data.totalAmount >= 0 && data.totalAmount <= 10000000 &&
+             data.bookingCode is string && data.bookingCode.size() >= 4 && data.bookingCode.size() <= 32 &&
+             data.status in ['confirmed', 'cancelled'];
+    }
+
+    function isValidFavorite(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.hotelId is string && data.hotelId.size() >= 1 && data.hotelId.size() <= 64;
+    }
+
+    match /hotels/{hotelId} {
+      allow get: if isSignedIn() && isValidId(hotelId);
+      allow list: if isSignedIn() && resource.data.isActive == true;
+
+      allow create: if isSignedIn() &&
+                       isValidId(hotelId) &&
+                       incoming().createdBy == request.auth.uid &&
+                       incoming().isActive == true &&
+                       incoming().keys().hasAll([
+                         'name', 'location', 'price', 'description',
+                         'isActive', 'createdBy', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'name', 'location', 'price', 'description',
+                         'city', 'state', 'categoryName', 'rating', 'reviewCount',
+                         'imageKey', 'amenities', 'checkInTime', 'checkOutTime',
+                         'rooms', 'featured', 'isActive', 'createdBy',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidHotel(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(hotelId) &&
+                       isValidHotel(incoming()) &&
+                       existing().createdBy == request.auth.uid &&
+                       incoming().createdBy == existing().createdBy &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'name', 'location', 'price', 'description',
+                         'city', 'state', 'categoryName', 'rating', 'reviewCount',
+                         'imageKey', 'amenities', 'checkInTime', 'checkOutTime',
+                         'rooms', 'featured', 'isActive', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(hotelId) && existing().createdBy == request.auth.uid;
+    }
+
+    match /users/{userId}/bookings/{bookingId} {
+      allow get: if isSignedIn() && isOwner(userId) && isValidId(bookingId);
+      allow list: if isSignedIn() && isOwner(userId);
+
+      allow create: if isSignedIn() &&
+                       isOwner(userId) &&
+                       isValidId(bookingId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'userId', 'hotelId', 'hotelName', 'hotelCity', 'hotelImageKey',
+                         'roomType', 'guestName', 'checkInEpochDay', 'checkOutEpochDay',
+                         'nights', 'guestsCount', 'roomsCount', 'pricePerNight',
+                         'taxesAndFees', 'totalAmount', 'bookingCode', 'status',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'hotelId', 'hotelName', 'hotelCity', 'hotelImageKey',
+                         'roomType', 'guestName', 'guestPhone', 'specialRequests',
+                         'checkInEpochDay', 'checkOutEpochDay', 'nights', 'guestsCount',
+                         'roomsCount', 'pricePerNight', 'taxesAndFees', 'totalAmount',
+                         'bookingCode', 'status', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().status == 'confirmed' &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidBooking(incoming());
+
+      allow update: if isSignedIn() &&
+                       isOwner(userId) &&
+                       isValidId(bookingId) &&
+                       isValidBooking(incoming()) &&
+                       existing().status == 'confirmed' &&
+                       incoming().userId == existing().userId &&
+                       incoming().hotelId == existing().hotelId &&
+                       incoming().bookingCode == existing().bookingCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       (
+                         (incoming().status == 'cancelled' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+                         (incoming().status == 'confirmed' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['specialRequests', 'guestPhone', 'updatedAt']))
+                       );
+
+      allow delete: if isSignedIn() && isOwner(userId) && isValidId(bookingId);
+    }
+
+    match /users/{userId}/favorites/{hotelId} {
+      allow get: if isSignedIn() && isOwner(userId) && isValidId(hotelId);
+      allow list: if isSignedIn() && isOwner(userId);
+
+      allow create: if isSignedIn() &&
+                       isOwner(userId) &&
+                       isValidId(hotelId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().hotelId == hotelId &&
+                       incoming().keys().hasAll(['userId', 'hotelId', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'hotelId', 'createdAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidFavorite(incoming());
+
+      allow update: if false;
+      allow delete: if isSignedIn() && isOwner(userId) && isValidId(hotelId);
+    }
+  }
+}

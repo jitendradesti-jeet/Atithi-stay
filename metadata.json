@@ -1,0 +1,6 @@
+{
+  "name": "Atithi Stay",
+  "description": "एक आधुनिक होटल बुकिंग ऐप जहाँ आप शहर, तारीख और कमरे के अनुसार होटल खोज और बुक कर सकते हैं।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
